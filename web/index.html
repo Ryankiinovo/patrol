@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Patrol</title>
+<style>
+  :root{
+    --bg:#0a0b0d; --panel:#121418; --line:#1e232b; --fg:#e8ecf2;
+    --mut:#7c8798; --acc:#4cc2ff; --warn:#ffb020; --bad:#ff5d5d; --ok:#3ddc97;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:13px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1240px;margin:0 auto;padding:20px 20px 40px;
+    display:grid;gap:14px;grid-template-columns:repeat(12,1fr)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .hdr{grid-column:span 12;display:flex;align-items:baseline;gap:14px}
+  .hdr h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.2px}
+  .hdr .t{color:var(--mut);font-size:12px;font-variant-numeric:tabular-nums}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block;
+    margin-right:6px;vertical-align:1px}
+  .dot.off{background:var(--bad)}
+
+  .stat{grid-column:span 3}
+  .stat .v{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+  .stat .u{font-size:12px;color:var(--mut);margin-left:3px;font-weight:400}
+  .stat canvas{display:block;width:100%;height:38px;margin-top:8px}
+  .stat.hi .v{color:var(--warn)}
+  .stat.crit .v{color:var(--bad)}
+
+  .chart{grid-column:span 6}
+  .chart h2{font-size:11px;color:var(--mut);margin:0 0 10px;font-weight:500;letter-spacing:.4px;text-transform:uppercase}
+  .chart canvas{display:block;width:100%;height:132px}
+  .legend{display:flex;gap:14px;font-size:11px;color:var(--mut);margin-top:6px}
+  .legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px}
+
+  .procs{grid-column:span 7}
+  .alerts{grid-column:span 5}
+  table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+  th{text-align:left;font-weight:500;font-size:11px;color:var(--mut);
+    padding:0 0 8px;letter-spacing:.3px}
+  td{padding:5px 0;border-top:1px solid var(--line);font-size:12px}
+  td.n{text-align:right;color:var(--mut)}
+  tr:first-child td{border-top:0}
+  .bar{height:3px;border-radius:2px;background:var(--acc);min-width:1px;margin-top:3px;opacity:.75}
+  .bar.bad{background:var(--bad)}
+  .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;display:block}
+  .alert{padding:8px 0;border-top:1px solid var(--line);display:grid;
+    grid-template-columns:56px 1fr;gap:10px;font-size:12px}
+  .alert:first-of-type{border-top:0}
+  .alert .ts{color:var(--mut);font-variant-numeric:tabular-nums;font-size:11px}
+  .alert .lv{color:var(--warn)}
+  .alert.critical .lv{color:var(--bad)}
+  .empty{color:var(--mut);font-size:12px;padding:8px 0}
+  @media(max-width:900px){
+    .stat{grid-column:span 6}.chart,.procs,.alerts{grid-column:span 12}
+  }
+</style>
+<div class="wrap">
+  <div class="hdr">
+    <h1><span class="dot" id="live"></span>Patrol</h1>
+    <span class="t" id="clock"></span>
+  </div>
+
+  <div class="card stat" id="s-temp">
+    <div class="v"><span id="v-temp">–</span><span class="u">°C</span></div>
+    <canvas id="c-temp"></canvas>
+  </div>
+  <div class="card stat" id="s-load">
+    <div class="v"><span id="v-load">–</span><span class="u">load</span></div>
+    <canvas id="c-load"></canvas>
+  </div>
+  <div class="card stat" id="s-mem">
+    <div class="v"><span id="v-mem">–</span><span class="u">GB</span></div>
+    <canvas id="c-mem"></canvas>
+  </div>
+  <div class="card stat" id="s-swap">
+    <div class="v"><span id="v-swap">–</span><span class="u">MB swap</span></div>
+    <canvas id="c-swap"></canvas>
+  </div>
+
+  <div class="card chart">
+    <h2>CPU 占用</h2>
+    <canvas id="c-cpu"></canvas>
+    <div class="legend"><span><i style="background:var(--acc)"></i>全部进程合计</span></div>
+  </div>
+  <div class="card chart">
+    <h2>机身温度</h2>
+    <canvas id="c-tl"></canvas>
+    <div class="legend"><span><i style="background:var(--warn)"></i>°C</span></div>
+  </div>
+
+  <div class="card procs">
+    <h2 style="font-size:11px;color:var(--mut);margin:0 0 10px;font-weight:500;letter-spacing:.4px;text-transform:uppercase">进程</h2>
+    <table>
+      <thead><tr><th>进程</th><th style="text-align:right">CPU</th><th style="text-align:right">内存</th><th style="text-align:right">写入</th></tr></thead>
+      <tbody id="procs"></tbody>
+    </table>
+  </div>
+
+  <div class="card alerts">
+    <h2 style="font-size:11px;color:var(--mut);margin:0 0 10px;font-weight:500;letter-spacing:.4px;text-transform:uppercase">告警</h2>
+    <div id="alerts"><div class="empty">暂无</div></div>
+  </div>
+</div>
+<script>
+const $ = s => document.querySelector(s);
+const fmt = n => n == null ? '–' : (Math.abs(n) >= 100 ? Math.round(n) : n.toFixed(1));
+const RULE = {
+  proc_cpu: 'CPU 占用过高', disk_write: '持续写盘', mem_pressure: '内存过高',
+  temp_high: '温度过高', swap_high: 'swap 过高',
+  session_growth: '会话目录膨胀', load_high: '负载过高',
+};
+
+function spark(id, vals, color, opts){
+  const c = document.getElementById(id), dpr = devicePixelRatio || 1;
+  const w = c.clientWidth, h = c.clientHeight;
+  c.width = w * dpr; c.height = h * dpr;
+  const g = c.getContext('2d');
+  g.scale(dpr, dpr); g.clearRect(0, 0, w, h);
+  if (!vals || vals.length < 2) return;
+  const max = opts && opts.max ? opts.max : Math.max(...vals) * 1.15 || 1;
+  const min = opts && opts.min != null ? opts.min : 0;
+  const X = i => i / (vals.length - 1) * (w - 2) + 1;
+  const Y = v => h - 2 - (Math.max(min, Math.min(max, v)) - min) / (max - min) * (h - 6);
+  g.beginPath(); g.moveTo(X(0), Y(vals[0]));
+  vals.forEach((v, i) => g.lineTo(X(i), Y(v)));
+  g.lineTo(w - 1, h); g.lineTo(1, h); g.closePath();
+  const grad = g.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, color + '55'); grad.addColorStop(1, color + '00');
+  g.fillStyle = grad; g.fill();
+  g.beginPath(); g.moveTo(X(0), Y(vals[0]));
+  vals.forEach((v, i) => g.lineTo(X(i), Y(v)));
+  g.strokeStyle = color; g.lineWidth = 1.5; g.lineJoin = 'round'; g.stroke();
+}
+
+function line(canvas, series, opts){
+  const c = document.getElementById(canvas), dpr = devicePixelRatio || 1;
+  const w = c.clientWidth, h = c.clientHeight;
+  c.width = w * dpr; c.height = h * dpr;
+  const g = c.getContext('2d');
+  g.scale(dpr, dpr); g.clearRect(0, 0, w, h);
+  const n = Math.max(...series.map(s => s.vals.length), 0);
+  if (n < 2) return;
+  // 网格
+  g.strokeStyle = '#1e232b'; g.lineWidth = 1;
+  for (let i = 0; i <= 3; i++){
+    const y = 6 + i / 3 * (h - 12);
+    g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke();
+  }
+  const max = (opts && opts.max != null) ? opts.max : Math.max(...series.flatMap(s => s.vals), 1) * 1.12;
+  const min = (opts && opts.min != null) ? opts.min : 0;
+  series.forEach(s => {
+    const X = i => i / (s.vals.length - 1) * (w - 2) + 1;
+    const Y = v => h - 4 - (Math.max(min, Math.min(max, v)) - min) / (max - min) * (h - 12);
+    g.beginPath(); g.moveTo(X(0), Y(s.vals[0]));
+    s.vals.forEach((v, i) => g.lineTo(X(i), Y(v)));
+    g.strokeStyle = s.color; g.lineWidth = 1.6; g.lineJoin = 'round'; g.stroke();
+  });
+  g.fillStyle = '#7c8798'; g.font = '10px -apple-system,sans-serif';
+  g.fillText(Math.round(max) + '', 2, 10);
+}
+
+let busy = false;
+async function tick(){
+  if (busy) return; busy = true;
+  try{
+    const [ov, se, pr, al] = await Promise.all([
+      fetch('/api/overview').then(r => r.json()),
+      fetch('/api/series?seconds=3600').then(r => r.json()),
+      fetch('/api/procs?seconds=600').then(r => r.json()),
+      fetch('/api/alerts').then(r => r.json()),
+    ]);
+    const now = ov.now || {};
+    const pts = se.points || [];
+    const fresh = now.ts && (Date.now() / 1000 - now.ts) < 30;
+    $('#live').className = 'dot' + (fresh ? '' : ' off');
+    $('#clock').textContent = now.ts ? new Date(now.ts * 1000).toLocaleTimeString('zh-CN', {hour12: false}) : '–';
+
+    $('#v-temp').textContent = fmt(now.temp_c);
+    $('#v-load').textContent = fmt(now.load1);
+    $('#v-mem').textContent = (now.mem_used_mb / 1024).toFixed(1);
+    $('#v-swap').textContent = Math.round(now.swap_used_mb || 0);
+    $('#s-temp').className = 'card stat' + ((now.temp_c || 0) >= 90 ? ' crit' : (now.temp_c || 0) >= 78 ? ' hi' : '');
+    $('#s-load').className = 'card stat' + ((now.load1 || 0) >= 12 ? ' crit' : (now.load1 || 0) >= 8 ? ' hi' : '');
+
+    const tail = (k, n) => pts.slice(-n).map(p => p[k] || 0);
+    spark('c-temp', tail('temp_c', 120), '#ffb020');
+    spark('c-load', tail('load1', 120), '#4cc2ff');
+    spark('c-mem', tail('mem_used_mb', 120).map(v => v / 1024), '#3ddc97', {min: 0});
+    spark('c-swap', tail('swap_used_mb', 120), '#ff5d5d', {min: 0});
+    line('c-cpu', [{vals: tail('cpu_busy', 240), color: '#4cc2ff'}]);
+    line('c-tl', [{vals: tail('temp_c', 240), color: '#ffb020'}], {min: 40, max: 105});
+
+    // 进程
+    const ps = ov.procs || [];
+    const maxcpu = Math.max(...ps.map(p => p.cpu), 100);
+    $('#procs').innerHTML = ps.length ? ps.map(p => {
+      const hot = p.cpu > 50;
+      return '<tr>' +
+        '<td><span class="name" title="' + (p.pid + ' ' + (p.name || '')) + '">' + (p.name || '?') +
+        '<i style="color:#5b6675;font-style:normal;margin-left:6px">' + p.pid + '</i></span>' +
+        '<div class="bar' + (hot ? ' bad' : '') + '" style="width:' + Math.max(2, p.cpu / maxcpu * 100) + '%"></div></td>' +
+        '<td class="n">' + p.cpu.toFixed(0) + '%</td>' +
+        '<td class="n">' + Math.round(p.rss_mb) + 'M</td>' +
+        '<td class="n">' + (p.write_kbs >= 1024 ? (p.write_kbs / 1024).toFixed(1) + 'M/s' : Math.round(p.write_kbs) + 'K/s') + '</td>' +
+        '</tr>';
+    }).join('') : '<tr><td colspan="4" class="empty">等待采样</td></tr>';
+
+    // 告警
+    const as = al.alerts || [];
+    $('#alerts').innerHTML = as.length ? as.map(a =>
+      '<div class="alert ' + a.level + '">' +
+      '<div class="ts">' + new Date(a.ts * 1000).toLocaleTimeString('zh-CN', {hour12: false}) + '</div>' +
+      '<div><span class="lv">' + (RULE[a.rule] || a.rule) + '</span> · ' + a.detail + '</div></div>'
+    ).join('') : '<div class="empty">暂无</div>';
+  }catch(e){
+    $('#live').className = 'dot off';
+  }finally{ busy = false; }
+}
+tick(); setInterval(tick, 5000);
+addEventListener('resize', tick);
+</script>
+</html>

@@ -1,0 +1,60 @@
+import Foundation
+import Combine
+
+final class MonitorModel: ObservableObject {
+    @Published var now: NowSnapshot?
+    @Published var procs: [ProcRow] = []
+    @Published var alerts: [AlertRow] = []
+    @Published var reachable = true
+
+    var onUpdate: ((NowSnapshot?) -> Void)?
+
+    private let base = "http://127.0.0.1:8787"
+    private var timer: Timer?
+
+    func start() {
+        refresh()
+        let t = Timer(timeInterval: 5, repeats: true) { [weak self] _ in self?.refresh() }
+        RunLoop.main.add(t, forMode: .common)
+        timer = t
+    }
+
+    func stop() {
+        timer?.invalidate()
+        timer = nil
+    }
+
+    func refresh() {
+        get("/api/overview", as: Overview.self) { [weak self] ov in
+            guard let self else { return }
+            guard let ov else {
+                self.reachable = false
+                self.onUpdate?(nil)
+                return
+            }
+            self.reachable = true
+            self.now = ov.now
+            self.procs = Array(ov.procs.prefix(6))
+            self.onUpdate?(ov.now)
+        }
+
+        get("/api/alerts", as: AlertsResponse.self) { [weak self] res in
+            guard let self else { return }
+            self.alerts = Array((res?.alerts ?? []).prefix(3))
+        }
+    }
+
+    private func get<T: Decodable>(_ path: String, as type: T.Type, _ done: @escaping (T?) -> Void) {
+        guard let url = URL(string: base + path) else {
+            done(nil)
+            return
+        }
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 3
+        req.cachePolicy = .reloadIgnoringLocalCacheData
+        URLSession.shared.dataTask(with: req) { data, _, _ in
+            let decoded: T? = data.flatMap { try? JSONDecoder().decode(T.self, from: $0) }
+            DispatchQueue.main.async { done(decoded) }
+        }.resume()
+    }
+}
