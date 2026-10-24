@@ -5,7 +5,12 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 AGENTS="$HOME/Library/LaunchAgents"
-LABEL="com.ryankiin.patrol.bar"
+LABEL="com.patrol.bar"
+# 端口与面板保持一致：在 shell 里 export PATROL_PORT 后重跑本脚本即可。
+PORT_ENV=""
+if [ -n "${PATROL_PORT:-}" ]; then
+  PORT_ENV="    <key>PATROL_PORT</key><string>${PATROL_PORT}</string>"
+fi
 APP="$ROOT/dist/PatrolBar.app"
 UID_="$(id -u)"
 
@@ -38,6 +43,7 @@ cat > "$AGENTS/$LABEL.plist" <<PLIST
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key><string>/usr/bin:/bin:/usr/sbin:/sbin</string>
+$PORT_ENV
   </dict>
 </dict>
 </plist>

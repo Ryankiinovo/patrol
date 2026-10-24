@@ -9,7 +9,7 @@
 	<key>CFBundleExecutable</key>
 	<string>PatrolBar</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.ryankiin.patrol.bar</string>
+	<string>com.patrol.bar</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>

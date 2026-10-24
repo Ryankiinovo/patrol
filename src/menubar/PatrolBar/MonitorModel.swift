@@ -9,7 +9,11 @@ final class MonitorModel: ObservableObject {
 
     var onUpdate: ((NowSnapshot?) -> Void)?
 
-    private let base = "http://127.0.0.1:8787"
+    // 面板地址与 web/server.py 保持一致；端口可用 PATROL_PORT 覆盖（安装脚本会写进 plist）。
+    private let base: String = {
+        let port = ProcessInfo.processInfo.environment["PATROL_PORT"] ?? "8787"
+        return "http://127.0.0.1:" + port
+    }()
     private var timer: Timer?
 
     func start() {

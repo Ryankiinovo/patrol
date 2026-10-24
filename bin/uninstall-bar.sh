@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-LABEL="com.ryankiin.patrol.bar"
+LABEL="com.patrol.bar"
 UID_="$(id -u)"
 
 launchctl bootout "gui/$UID_/$LABEL" 2>/dev/null || true

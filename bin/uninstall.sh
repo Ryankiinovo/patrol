@@ -4,7 +4,7 @@ set -uo pipefail
 
 AGENTS="$HOME/Library/LaunchAgents"
 UID_="$(id -u)"
-for label in com.ryankiin.patrol.collector com.ryankiin.patrol.panel; do
+for label in com.patrol.collector com.patrol.panel; do
   launchctl bootout "gui/$UID_/$label" 2>/dev/null || true
   rm -f "$AGENTS/$label.plist"
   echo "removed $label"

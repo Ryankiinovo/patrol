@@ -91,11 +91,11 @@ COMPANIONS = (...)          # 上面哪些进程参与内存合计告警
 
 ## HTTP 接口
 
-面板只读，绑在回环地址（`127.0.0.1`，端口可用 `PATROL_PORT` 覆盖）。所有接口返回 JSON：
+面板只读，绑在回环地址（`127.0.0.1`）；换端口设 `PATROL_PORT`，`install.sh` 与 `install-bar.sh` 会把它一并写进 launchd 任务，菜单栏跟着走。所有接口返回 JSON：
 
 | 接口 | 返回 |
 |---|---|
-| `/api/overview` | 最新样本、最近一批进程、最近告警 |
+| `/api/overview` | 最新样本、最近一批进程 |
 | `/api/series?seconds=3600` | 面板折线用的时间序列 |
 | `/api/procs` | 最近的进程行 |
 | `/api/writers` | 最新一批里写盘最多的进程 |

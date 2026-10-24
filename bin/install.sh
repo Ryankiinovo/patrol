@@ -12,6 +12,12 @@ if [ -z "$PY" ]; then
 fi
 PY="$(readlink -f "$PY" 2>/dev/null || echo "$PY")"
 
+# 端口：在 shell 里 export PATROL_PORT 后重跑本脚本，plist 会带上同一个值。
+PORT_ENV=""
+if [ -n "${PATROL_PORT:-}" ]; then
+  PORT_ENV="    <key>PATROL_PORT</key><string>${PATROL_PORT}</string>"
+fi
+
 mkdir -p "$ROOT/data" "$ROOT/logs" "$AGENTS"
 
 write_plist () {
@@ -36,6 +42,7 @@ write_plist () {
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+$PORT_ENV
   </dict>
 </dict>
 </plist>
@@ -44,12 +51,12 @@ PLIST
 
 UID_="$(id -u)"
 
-for label in com.ryankiin.patrol.collector com.ryankiin.patrol.panel; do
+for label in com.patrol.collector com.patrol.panel; do
   launchctl bootout "gui/$UID_/$label" 2>/dev/null || true
 done
 
-write_plist "com.ryankiin.patrol.collector" "monitor/collector.py" "collector"
-write_plist "com.ryankiin.patrol.panel" "web/server.py" "panel"
+write_plist "com.patrol.collector" "monitor/collector.py" "collector"
+write_plist "com.patrol.panel" "web/server.py" "panel"
 
 # 日志文件必须由 launchd 自己创建：预先 touch 出来的文件带沙箱 provenance 标记，
 # launchd 打不开会直接以 EX_CONFIG(78) 退出，进程根本起不来。
@@ -71,12 +78,12 @@ bootstrap_job () {
   return 1
 }
 
-for label in com.ryankiin.patrol.collector com.ryankiin.patrol.panel; do
+for label in com.patrol.collector com.patrol.panel; do
   wait_job_gone "$label"
 done
 sleep 1
 
-for label in com.ryankiin.patrol.collector com.ryankiin.patrol.panel; do
+for label in com.patrol.collector com.patrol.panel; do
   bootstrap_job "$label" || true
 done
 

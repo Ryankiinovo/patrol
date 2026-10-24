@@ -91,11 +91,11 @@ Thresholds are hard-coded in `Monitor.evaluate()`; they are a handful of integer
 
 ## HTTP API
 
-The panel is read-only and bound to loopback (`127.0.0.1`, override the port with `PATROL_PORT`). All endpoints return JSON:
+The panel is read-only and bound to loopback (`127.0.0.1`). Set `PATROL_PORT` to move it; `install.sh` and `install-bar.sh` pass the same port through to the launchd jobs, so the menu bar stays in sync. All endpoints return JSON:
 
 | Endpoint | Returns |
 |---|---|
-| `/api/overview` | latest sample, the most recent process batch, recent alerts |
+| `/api/overview` | latest sample and the most recent process batch |
 | `/api/series?seconds=3600` | time series for the panel charts |
 | `/api/procs` | recent process rows |
 | `/api/writers` | top writers in the latest batch |
